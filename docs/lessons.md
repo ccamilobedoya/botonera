@@ -4,9 +4,12 @@ Hallazgos que se repitieron y en qué regla automática se convirtieron, más lo
 
 ## Reglas nuevas
 
-| Fecha      | Ficha | Hallazgo repetido                                                                                                   | Regla nueva                  | Dónde                       |
-| ---------- | ----- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------- | --------------------------- |
-| 2026-11-04 | F-000 | (heredadas de Tintero: encargos con lista exacta, estado OK/STOPPED, sin `pgrep -f`, sin _pipes_ sobre el lanzador) | Ya aplicadas desde el inicio | `docs/process.md`, `tools/` |
+| Fecha      | Ficha               | Hallazgo repetido                                                                                                                                       | Regla nueva                                                                                              | Dónde                       |
+| ---------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------- |
+| 2026-11-04 | F-000 (verificador) | `scripts/review` salía 2 en un _worktree_ nuevo: faltaban los binarios de `.checks/bin/` (no versionados)                                               | Toda carpeta de trabajo arranca con `scripts/setup && npm ci`                                            | `docs/process.md`           |
+| 2026-11-04 | F-000 (verificador) | `tools/map` omitía `docs/reports/` por una lista de carpetas heredada                                                                                   | Lista de exclusión solo con lo generado (`.review`, `.agents`, `build`)                                  | `tools/lib/map.ts`          |
+| 2026-11-04 | F-000 (verificador) | El verificador no pudo correr el hook `pre-commit` ni su propio `check.sh`: el patrón `Bash(sh scripts/hooks/:*)` no cubre un comando pegado al prefijo | Patrones con el comando completo (`Bash(sh scripts/hooks/pre-commit:*)`, `Bash(sh tests/acceptance/:*)`) | `tools/launch-agent`        |
+| 2026-11-04 | F-000               | (heredadas de Tintero: encargos con lista exacta, estado OK/STOPPED, sin `pgrep -f`, sin _pipes_ sobre el lanzador)                                     | Ya aplicadas desde el inicio                                                                             | `docs/process.md`, `tools/` |
 
 ## Para la plantilla
 
