@@ -3,12 +3,12 @@
 # went past 72 characters, and the integrator stopped).
 # Usage: tools/integrator-brief <folder> --phase <phase> --spec F-NNN --summary "<text>" \
 #        [--role <programmer|verifier> [--base main|HEAD]] [--merge <branch>] [--push] [--detail "<line>"]...
-#        [--only <path>]... [--tag vX.Y.Z]
+#        [--only <path>]... [--tag vX.Y.Z] [--push-tags]
 # --only (repeatable): only changes under those paths go in. Use it on `main`, whose copy other sessions share.
 # Prints the brief; redirect it to a file and pass it to tools/launch-agent integrator haiku <folder> <file>.
 set -euo pipefail
 DIR="${1:?folder}"; shift
-PHASE=""; SPEC=""; SUMMARY=""; ROLE=""; BASE="main"; MERGE=""; PUSH=0; DETAILS=(); ONLY=(); TAG=""
+PHASE=""; SPEC=""; SUMMARY=""; ROLE=""; BASE="main"; MERGE=""; PUSH=0; DETAILS=(); ONLY=(); TAG=""; PUSH_TAGS=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --phase) PHASE="$2"; shift 2 ;;
@@ -21,6 +21,7 @@ while [ $# -gt 0 ]; do
     --detail) DETAILS+=("$2"); shift 2 ;;
     --only) ONLY+=("${2%/}"); shift 2 ;;
     --tag) TAG="$2"; shift 2 ;;
+    --push-tags) PUSH_TAGS=1; shift ;;
     *) echo "Unknown option: $1" >&2; exit 2 ;;
   esac
 done
@@ -64,4 +65,7 @@ if [ -n "$TAG" ]; then
   [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid tag: $TAG" >&2; exit 2; }
   echo "$STEP. Tag the result: \`git tag -a $TAG -m \"$TITLE\"\`."; STEP=$((STEP+1))
 fi
-if [ "$PUSH" -eq 1 ]; then echo "$STEP. \`git push -u origin $BRANCH\`$( [ -n "$TAG" ] && echo " and \`git push origin $TAG\`")."; else echo "$STEP. Do **not** push."; fi
+if [ "$PUSH" -eq 1 ]; then
+  EXTRA=""; [ -n "$TAG" ] && EXTRA=" and \`git push origin $TAG\`"; [ "$PUSH_TAGS" -eq 1 ] && EXTRA="$EXTRA and \`git push origin --tags\`"
+  echo "$STEP. \`git push -u origin $BRANCH\`$EXTRA."
+else echo "$STEP. Do **not** push."; fi

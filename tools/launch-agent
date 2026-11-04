@@ -4,6 +4,9 @@
 # Leaves the full JSON output (cost and tokens) in .agents/ of the main repo and prints the report.
 # Exit 1 if the agent ended with an error, 3 if its report says STOPPED (never continue a chain on 3).
 set -euo pipefail
+# The whole body is a function so bash parses it before running: editing this file while an agent runs
+# must not change what the running copy executes (it happened on 2026-11-04).
+main() {
 ROLE="${1:?role}"; MODEL="${2:?model}"; WORKDIR="${3:?folder}"; BRIEF="${4:?brief}"; BUDGET="${5:-2}"
 BRIEF="$(realpath "$BRIEF")"; WORKDIR="$(realpath "$WORKDIR")"
 REPO="$(git rev-parse --show-toplevel)"
@@ -50,3 +53,5 @@ const isIntegrator = process.argv[2] === "integrator";
 if (/\*\*Status:\*\*\s*STOPPED/.test(d.result ?? "") || (isIntegrator && !/\*\*Status:\*\*\s*OK/.test(d.result ?? ""))) { console.log("\nSTOPPED: the agent stopped; do not continue the chain without reading its report."); process.exitCode = 3; }
 console.log(`\n--- ${process.argv[2]} · cost USD ${(d.total_cost_usd ?? 0).toFixed(3)} · turns ${d.num_turns ?? "?"} · input tokens ${u.input_tokens ?? "?"} (+cache ${u.cache_read_input_tokens ?? 0}) output ${u.output_tokens ?? "?"} · ${d.subtype ?? ""}`);
 ' "$LOG" "$ROLE"
+}
+main "$@"

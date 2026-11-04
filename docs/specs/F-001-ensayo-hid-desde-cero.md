@@ -52,7 +52,7 @@ experiments/hid-from-scratch/
   usb_descriptors.c      descriptores a mano, comentados (R2); tud_descriptor_*_cb
   usb_descriptors.h      constantes compartidas (longitudes, índices de cadena)
   enum_log.c / .h        registro de peticiones: enum_log_add(...), enum_log_render(char *out, size_t n)
-  keys.c / .h            texto → reports: keys_type_line(const char *s) (bloqueante, ≤ 2 s para 200 caracteres)
+  keys.c / .h            texto → reports: keys_type_line(const char *s) (bloqueante, ≤ 5 s para 200 caracteres)
   keys_port.h            lo que keys.c necesita del exterior (dos funciones, abajo); las implementa main.c en el firmware y la prueba en el PC
   bootsel.c / .h         bootsel_pressed(void): lectura del botón, con antirrebote de 50 ms
   main.c                 tusb_init, bucle: tud_task(), botón, AUTO_TYPE
@@ -112,7 +112,7 @@ Las tres primeras se prueban también **en el PC** (`tests/acceptance/F-001/host
 ## Presupuestos
 
 - Flash: `.uf2` < 200 KB. RAM: búfer del registro 64 × 10 bytes más la línea de salida de 1 KB.
-- Escribir la línea completa (≤ 700 caracteres): < 2 s.
+- Escribir la línea completa (≤ 700 caracteres): ≤ 15 s (dos reports por carácter con 10 ms entre reports, R3). _(Corregido el 2026-11-04: decía «< 2 s», incompatible con R3.)_
 - Reacción a BOOTSEL: < 100 ms.
 
 ## Seguridad

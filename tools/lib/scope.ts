@@ -1,4 +1,5 @@
-// What each agent role may change (P5). Checked with git, not with the agent's good will.
+// What each agent role may change. Checked with git, not with the agent's good will.
+// The programmer owns tools/host/ (host-side test helpers of the firmware); the rest of tools/ is the architect's.
 import { matchesAny } from "./glob.ts";
 
 export type Role = "programmer" | "verifier" | "reviewer";
@@ -19,7 +20,8 @@ const ARCHITECT_OWNED = [
   "docs/metrics.md",
   ".claude/**",
   "CLAUDE.md",
-  "tools/**",
+  "tools/*",
+  "tools/lib/**",
   "tests/agents/**",
 ];
 

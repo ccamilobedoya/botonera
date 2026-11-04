@@ -15,12 +15,17 @@ describe("outOfScope", () => {
       "tests/acceptance/a.test.ts",
       ".claude/agents/programmer.md",
       "package.json",
+      "tools/host/read_line.py",
+      "tools/launch-agent",
+      "tools/lib/map.ts",
     ];
     expect(outOfScope("programmer", files)).toEqual([
       "docs/specs/F-001.md",
       "docs/adr/0001.md",
       "tests/acceptance/a.test.ts",
       ".claude/agents/programmer.md",
+      "tools/launch-agent",
+      "tools/lib/map.ts",
     ]);
   });
 
