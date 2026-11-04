@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Runs the acceptance checks of one spec: tests/acceptance/F-NNN/check.sh when it exists (POSIX sh),
+# otherwise the Vitest files under that folder. Single entry point so agents need one permission.
+# Usage: tools/acceptance F-NNN
+set -euo pipefail
+SPEC="${1:?spec id, e.g. F-001}"
+[[ "$SPEC" =~ ^F-[0-9]{3}$ ]] || { echo "acceptance: invalid spec id $SPEC" >&2; exit 2; }
+ROOT="$(git rev-parse --show-toplevel)"; cd "$ROOT"
+DIR="tests/acceptance/$SPEC"
+[ -d "$DIR" ] || { echo "acceptance: no $DIR" >&2; exit 2; }
+if [ -f "$DIR/check.sh" ]; then
+  sh "$DIR/check.sh"
+else
+  node_modules/.bin/vitest run "$DIR"
+fi

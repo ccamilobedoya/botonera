@@ -23,7 +23,7 @@ The architect tells you the **phase**, the spec and the work folder (worktree). 
 
 ## Phase "verification" (after the code)
 
-1. Run the acceptance tests of the spec and `npm test`.
+1. Run `tools/acceptance F-NNN` (it runs `tests/acceptance/F-NNN/check.sh` if it exists, otherwise the Vitest files there) and `npm test`. To exercise a git hook, call it directly (`scripts/hooks/pre-commit`), never through `sh`.
 2. For every CA: **PASA** or **FALLA**, with evidence (test, expected, obtained). You may read the code only to explain a failure, never to change what is expected. Criteria marked "pendiente de Cris" in the spec are reported as **PENDIENTE DEL DUEÑO**, not as failures.
 3. **Do not modify production code.** Do not weaken a test to make it pass. Do not add retries or tolerances the spec does not authorize. If a test of yours contradicts the spec, fix it and say so explicitly in the report.
 4. If a CA has no test, write it before giving the verdict.
