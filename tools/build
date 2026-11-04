@@ -36,7 +36,7 @@ pico_build() {
 case "$TARGET" in
   qmk)
     DIGEST="$(tr -d '[:space:]' < docker/qmk.digest)"
-    docker run --rm --network none "ghcr.io/qmk/qmk_cli@$DIGEST" qmk --version
+    echo "QMK CLI $(docker run --rm --network none "ghcr.io/qmk/qmk_cli@$DIGEST" qmk --version)"
     if [ ! -f firmware/keyboards/botonera/info.json ]; then
       echo "build: no keyboard yet (see F-002)"; exit 1
     fi

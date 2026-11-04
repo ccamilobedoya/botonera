@@ -13,13 +13,13 @@ LOG="$OUT/$STAMP-$ROLE.json"
 
 READ_TOOLS=(Read Grep Glob "Bash(git status:*)" "Bash(git diff:*)" "Bash(git log:*)" "Bash(git show:*)" "Bash(ls:*)")
 WRITE_TOOLS=(Edit Write "Bash(npm run:*)" "Bash(npm test:*)" "Bash(npx vitest:*)" "Bash(npx tsc:*)" "Bash(npx prettier:*)" \
-  "Bash(tools/check-scope:*)" "Bash(tools/build:*)" "Bash(tools/host/:*)" "Bash(python3 tools/host/:*)" "Bash(scripts/review:*)" "Bash(mkdir:*)" "Bash(rm:*)")
+  "Bash(tools/check-scope:*)" "Bash(tools/build:*)" "Bash(tools/acceptance:*)" "Bash(tools/host/:*)" "Bash(python3 tools/host/:*)" "Bash(scripts/review:*)" "Bash(mkdir:*)" "Bash(rm:*)")
 # Local services only: the build containers and the test pad on 127.0.0.1.
 LOCAL_TOOLS=("Bash(docker ps:*)" "Bash(docker logs:*)" "Bash(docker stop:*)" "Bash(lsusb:*)" "Bash(ls /dev/input/by-id:*)")
 case "$ROLE" in
   programmer) TOOLS=("${READ_TOOLS[@]}" "${WRITE_TOOLS[@]}" "${LOCAL_TOOLS[@]}") ;;
   # The verifier also drives the repo checks and the pad: hooks, hashes, artifacts, staging in its own worktree.
-  verifier) TOOLS=("${READ_TOOLS[@]}" "${WRITE_TOOLS[@]}" "${LOCAL_TOOLS[@]}" "Bash(sh scripts/hooks/pre-commit:*)" "Bash(scripts/hooks/pre-commit:*)" "Bash(sh tests/acceptance/:*)" \
+  verifier) TOOLS=("${READ_TOOLS[@]}" "${WRITE_TOOLS[@]}" "${LOCAL_TOOLS[@]}" "Bash(scripts/hooks/pre-commit:*)" "Bash(tools/acceptance:*)" \
     "Bash(git add:*)" "Bash(git restore --staged:*)" "Bash(git check-ignore:*)" "Bash(git ls-files:*)" "Bash(sha256sum:*)" "Bash(strings:*)" \
     "Bash(grep:*)" "Bash(test:*)" "Bash(cat:*)" "Bash(wc:*)" "Bash(head:*)" "Bash(tail:*)" "Bash(tools/map:*)" "Bash(tools/publish-spec:*)" "Bash(gcc:*)" "Bash(python3 tests/:*)") ;;
   reviewer) TOOLS=(Read Grep Glob) ;;   # read-only: the architect leaves .review/review.txt and .review/diff.patch

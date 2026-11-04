@@ -25,6 +25,8 @@ You are the **programmer** of Botonera. You implement **one approved spec**, not
    ```bash
    npm run typecheck && npm test && npm run format:check
    tools/build <target>          # the target the spec names
+   tools/acceptance F-MMM        # the acceptance checks of earlier specs that your branch carries
+   tools/acceptance F-MMM        # the acceptance checks of earlier specs that your branch carries
    tools/check-scope programmer --base main
    ```
 
