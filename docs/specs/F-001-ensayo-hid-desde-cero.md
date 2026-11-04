@@ -53,6 +53,7 @@ experiments/hid-from-scratch/
   usb_descriptors.h      constantes compartidas (longitudes, índices de cadena)
   enum_log.c / .h        registro de peticiones: enum_log_add(...), enum_log_render(char *out, size_t n)
   keys.c / .h            texto → reports: keys_type_line(const char *s) (bloqueante, ≤ 2 s para 200 caracteres)
+  keys_port.h            lo que keys.c necesita del exterior (dos funciones, abajo); las implementa main.c en el firmware y la prueba en el PC
   bootsel.c / .h         bootsel_pressed(void): lectura del botón, con antirrebote de 50 ms
   main.c                 tusb_init, bucle: tud_task(), botón, AUTO_TYPE
   README.md              qué es, cómo compilar (tools/build hid-from-scratch), cómo grabar, qué escribe
@@ -63,19 +64,23 @@ experiments/hid-from-scratch/
 Una sola línea, terminada en Enter, con este formato (ejemplo inventado):
 
 ```text
-botonera ensayo 1 n 11 r 80 06 0100 0000 0040 r 80 06 0200 0000 0009 r 80 06 0300 0000 00ff r 80 06 03ee 0000 00ff r 00 09 0001 0000 0000 r 21 0a 0000 0000 0000 r 81 06 2200 0000 003f
+botonera ensayo 1 n 7 r 80 06 0100 0000 0040 r 80 06 0200 0000 0009 r 80 06 0300 0000 00ff r 80 06 03ee 0000 00ff r 00 09 0001 0000 0000 r 21 0a 0000 0000 0000 r 81 06 2200 0000 003f
 ```
 
 - `botonera ensayo 1`: marca fija y versión del formato.
-- `n <k>`: cuántas peticiones se registraron (si el búfer se llenó, `n 64 full`).
+- `n <k>`: cuántas peticiones se registraron, igual al número de grupos `r …` que siguen (el ejemplo tiene 7; si el búfer se llenó, `n 64 full`). _(Corregido el 2026-11-04: el ejemplo decía `n 11` con 7 peticiones.)_
 - Por cada petición: `r <bmRequestType> <bRequest> <wValue> <wIndex> <wLength>`, todo en hexadecimal en minúsculas, sin `0x`, con el ancho fijo de arriba (2, 2, 4, 4, 4).
 - Si no se pudo obtener `wLength` (R1), se escribe `xxxx` en su lugar y el README lo explica.
 
 ### Funciones con nombre y firma (lo que prueba el verificador)
 
+- `void enum_log_reset(void);` vacía el registro y pone `dropped` en 0.
+- `size_t enum_log_count(void);` cuántas entradas guardadas (0–64). `uint32_t enum_log_dropped(void);` cuántas no cupieron.
+
 - `void enum_log_add(uint8_t bmRequestType, uint8_t bRequest, uint16_t wValue, uint16_t wIndex, uint16_t wLength);` guarda hasta `ENUM_LOG_MAX = 64` entradas; la 65 en adelante solo sube un contador `dropped`.
 - `size_t enum_log_render(char *out, size_t n);` escribe la línea del formato de arriba, siempre terminada en `\0`, nunca más de `n - 1` caracteres, y devuelve cuántos escribió.
 - `void keys_type_line(const char *s);` escribe `s` y un Enter; caracteres fuera de `[a-z0-9 ]` salen como espacio.
+- `keys.c` no habla con TinyUSB directamente: usa dos funciones declaradas en `keys_port.h` y definidas fuera (en `main.c` en el firmware, en la prueba en el PC): `void keys_port_send(const uint8_t report[8]);` (entrega un report de teclado de 8 bytes y vuelve cuando el host lo aceptó) y `void keys_port_sleep_ms(uint32_t ms);` (espera). `keys_type_line` llama a `keys_port_send` una vez por report y a `keys_port_sleep_ms(10)` después de cada uno. En la prueba, `keys_port_send` guarda los reports en una lista y `keys_port_sleep_ms` no hace nada. _(Aclarado el 2026-11-04 tras la fase de pruebas: el contrato no nombraba estas funciones.)_
 - `bool bootsel_pressed(void);` verdadero una sola vez por pulsación (flanco), con antirrebote de 50 ms.
 
 Las tres primeras se prueban también **en el PC** (`tests/acceptance/F-001/host/`, compiladas con el `gcc` del contenedor, sin hardware): `enum_log` y `keys` no dependen del chip salvo por la función que envía el report, que se inyecta.
@@ -92,7 +97,7 @@ Las tres primeras se prueban también **en el PC** (`tests/acceptance/F-001/host
 
 **Con la placa conectada al servidor (verificador; Cris la enchufa en modo BOOTSEL y copia el `.uf2` de prueba, o la deja enchufada y el verificador avisa):**
 
-- **CA6.** Con `hid_from_scratch_autotype.uf2`, en menos de 10 s desde que aparece, el servidor recibe por `evdev` (`/dev/input/by-id/*Botonera*`) una línea que empieza por `botonera ensayo 1 n` seguido de un espacio y termina con Enter; la herramienta `tools/host/read_line.py --timeout 10` la imprime y sale 0.
+- **CA6.** Con `hid_from_scratch_autotype.uf2`, enchufado (o reenchufado) justo antes de correr la prueba, en menos de 10 s desde que aparece, el servidor recibe por `evdev` (`/dev/input/by-id/*Botonera*`) una línea que empieza por `botonera ensayo 1 n` seguido de un espacio y termina con Enter; la herramienta `tools/host/read_line.py --timeout 10` la imprime y sale 0.
 - **CA7.** La línea de CA6 contiene al menos una petición `r 80 06 0100` (descriptor de dispositivo), una `r 80 06 0200` (configuración) y una `r 81 06 2200` (descriptor de reporte HID), en ese orden relativo.
 - **CA8.** Después de la línea, `evdev` no reporta ninguna tecla en estado presionado (`EVIOCGKEY` todo en cero), comprobado 1 s después.
 - **CA9.** `lsusb -v -d 2e8a:` muestra una sola interfaz, clase HID (3), subclase 1 (boot), protocolo 1 (teclado), endpoint IN de 8 bytes; sin CDC ni MSC.
@@ -113,7 +118,7 @@ Las tres primeras se prueban también **en el PC** (`tests/acceptance/F-001/host
 ## Seguridad
 
 - S1: el único OUT aceptado es el report de LEDs de 1 byte (R6). S2: el gancho `AUTO_TYPE` es una compilación aparte y la de producción no lo contiene (CA5). S3: el texto escrito nunca incluye nada que no sea el registro de peticiones. S5: compilación en contenedor sin red tras construir la imagen.
-- `tools/host/read_line.py` lee `evdev` con tope de 4 KB por línea y descarta lo que no cumpla el formato.
+- `tools/host/read_line.py` lee `evdev` con tope de 4 KB por línea y descarta lo que no cumpla el formato. Acepta `--device <ruta>` opcional; sin él, usa la primera entrada `/dev/input/by-id/*Botonera*`.
 
 ## Archivos
 
