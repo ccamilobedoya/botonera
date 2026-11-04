@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Launches one of the repo's agents in a work folder with a clean context and a spend cap.
+# Usage: tools/launch-agent <programmer|verifier|reviewer|integrator> <sonnet|haiku> <folder> <brief-file> [cap-usd]
+# Leaves the full JSON output (cost and tokens) in .agents/ of the main repo and prints the report.
+# Exit 1 if the agent ended with an error, 3 if its report says STOPPED (never continue a chain on 3).
+set -euo pipefail
+ROLE="${1:?role}"; MODEL="${2:?model}"; WORKDIR="${3:?folder}"; BRIEF="${4:?brief}"; BUDGET="${5:-2}"
+BRIEF="$(realpath "$BRIEF")"; WORKDIR="$(realpath "$WORKDIR")"
+REPO="$(git rev-parse --show-toplevel)"
+OUT="$REPO/.agents"; mkdir -p "$OUT"
+STAMP="$(date +%Y%m%d-%H%M%S)"
+LOG="$OUT/$STAMP-$ROLE.json"
+
+READ_TOOLS=(Read Grep Glob "Bash(git status:*)" "Bash(git diff:*)" "Bash(git log:*)" "Bash(git show:*)" "Bash(ls:*)")
+WRITE_TOOLS=(Edit Write "Bash(npm run:*)" "Bash(npm test:*)" "Bash(npx vitest:*)" "Bash(npx tsc:*)" "Bash(npx prettier:*)" \
+  "Bash(tools/check-scope:*)" "Bash(tools/build:*)" "Bash(tools/host/:*)" "Bash(python3 tools/host/:*)" "Bash(scripts/review:*)" "Bash(mkdir:*)" "Bash(rm:*)")
+# Local services only: the build containers and the test pad on 127.0.0.1.
+LOCAL_TOOLS=("Bash(docker ps:*)" "Bash(docker logs:*)" "Bash(docker stop:*)" "Bash(lsusb:*)" "Bash(ls /dev/input/by-id:*)")
+case "$ROLE" in
+  programmer) TOOLS=("${READ_TOOLS[@]}" "${WRITE_TOOLS[@]}" "${LOCAL_TOOLS[@]}") ;;
+  # The verifier also drives the repo checks and the pad: hooks, hashes, artifacts, staging in its own worktree.
+  verifier) TOOLS=("${READ_TOOLS[@]}" "${WRITE_TOOLS[@]}" "${LOCAL_TOOLS[@]}" "Bash(sh scripts/hooks/:*)" "Bash(scripts/hooks/:*)" \
+    "Bash(git add:*)" "Bash(git restore --staged:*)" "Bash(git check-ignore:*)" "Bash(git ls-files:*)" "Bash(sha256sum:*)" "Bash(strings:*)" \
+    "Bash(grep:*)" "Bash(test:*)" "Bash(cat:*)" "Bash(wc:*)" "Bash(head:*)" "Bash(tail:*)" "Bash(tools/map:*)" "Bash(tools/publish-spec:*)" "Bash(gcc:*)" "Bash(python3 tests/:*)") ;;
+  reviewer) TOOLS=(Read Grep Glob) ;;   # read-only: the architect leaves .review/review.txt and .review/diff.patch
+  integrator) TOOLS=(Read "${READ_TOOLS[@]:3}" "Bash(git add:*)" "Bash(git commit:*)" "Bash(git merge:*)" "Bash(git push -u origin:*)" "Bash(git push origin:*)" "Bash(git branch:*)" "Bash(git switch:*)" "Bash(git tag:*)" "Bash(tools/check-scope:*)") ;;
+  *) echo "Unknown role: $ROLE" >&2; exit 2 ;;
+esac
+
+# Nobody rewrites history; only the integrator pushes.
+DENY=("Bash(git push --force:*)" "Bash(git push -f:*)" "Bash(git push --no-verify:*)" "Bash(git commit --no-verify:*)" "Bash(git commit -n:*)" "Bash(git reset:*)" "Bash(git rebase:*)")
+[ "$ROLE" = integrator ] || DENY+=("Bash(git push:*)" "Bash(git commit:*)")
+
+cd "$WORKDIR"
+# Always the agent definition of the MAIN copy of the repo, not the one of the work folder's branch.
+MAIN_REPO="$(dirname "$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir)")"
+AGENTS_JSON="$(node "$MAIN_REPO/tools/lib/agent-json.ts" "$MAIN_REPO/.claude/agents/$ROLE.md")"
+
+claude -p --agents "$AGENTS_JSON" --agent "$ROLE" --model "$MODEL" --permission-mode default \
+  --allowedTools "${TOOLS[@]}" --disallowedTools "${DENY[@]}" \
+  --max-budget-usd "$BUDGET" --output-format json "$(cat "$BRIEF")" </dev/null >"$LOG"
+
+node -e '
+const d = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+const u = d.usage ?? {};
+if (d.is_error) console.log("WARNING: THE AGENT ENDED WITH AN ERROR (e.g. account usage limit): its work may be incomplete.\n");
+console.log(d.result ?? "(no result)");
+if (d.is_error) process.exitCode = 1;
+const isIntegrator = process.argv[2] === "integrator";
+if (/\*\*Status:\*\*\s*STOPPED/.test(d.result ?? "") || (isIntegrator && !/\*\*Status:\*\*\s*OK/.test(d.result ?? ""))) { console.log("\nSTOPPED: the agent stopped; do not continue the chain without reading its report."); process.exitCode = 3; }
+console.log(`\n--- ${process.argv[2]} · cost USD ${(d.total_cost_usd ?? 0).toFixed(3)} · turns ${d.num_turns ?? "?"} · input tokens ${u.input_tokens ?? "?"} (+cache ${u.cache_read_input_tokens ?? 0}) output ${u.output_tokens ?? "?"} · ${d.subtype ?? ""}`);
+' "$LOG" "$ROLE"

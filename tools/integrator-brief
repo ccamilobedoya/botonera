@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# Builds the integrator's brief with the EXACT list of changed files (hand-written briefs forgot files or
+# went past 72 characters, and the integrator stopped).
+# Usage: tools/integrator-brief <folder> --phase <phase> --spec F-NNN --summary "<text>" \
+#        [--role <programmer|verifier> [--base main|HEAD]] [--merge <branch>] [--push] [--detail "<line>"]...
+#        [--only <path>]...
+# --only (repeatable): only changes under those paths go in. Use it on `main`, whose copy other sessions share.
+# Prints the brief; redirect it to a file and pass it to tools/launch-agent integrator haiku <folder> <file>.
+set -euo pipefail
+DIR="${1:?folder}"; shift
+PHASE=""; SPEC=""; SUMMARY=""; ROLE=""; BASE="main"; MERGE=""; PUSH=0; DETAILS=(); ONLY=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --phase) PHASE="$2"; shift 2 ;;
+    --spec) SPEC="$2"; shift 2 ;;
+    --summary) SUMMARY="$2"; shift 2 ;;
+    --role) ROLE="$2"; shift 2 ;;
+    --base) BASE="$2"; shift 2 ;;
+    --merge) MERGE="$2"; shift 2 ;;
+    --push) PUSH=1; shift ;;
+    --detail) DETAILS+=("$2"); shift 2 ;;
+    --only) ONLY+=("${2%/}"); shift 2 ;;
+    *) echo "Unknown option: $1" >&2; exit 2 ;;
+  esac
+done
+case "$PHASE" in spec|tests|code|verification|review|close|process) ;; *) echo "Invalid phase: $PHASE" >&2; exit 2 ;; esac
+[[ "$SPEC" =~ ^F-[0-9]{3}$ ]] || { echo "Invalid spec id: $SPEC" >&2; exit 2; }
+TITLE="$SPEC $PHASE: $SUMMARY"
+[ "${#TITLE}" -le 72 ] || { echo "The first commit line has ${#TITLE} characters (max 72): $TITLE" >&2; exit 2; }
+cd "$DIR"
+BRANCH="$(git branch --show-current)"
+mapfile -t ALL < <(git status --short --untracked-files=all)
+FILES=(); LEFT=()
+for line in "${ALL[@]}"; do
+  path="${line:3}"; keep=1
+  if [ "${#ONLY[@]}" -gt 0 ]; then
+    keep=0
+    for s in "${ONLY[@]}"; do [[ "$path" == "$s" || "$path" == "$s/"* ]] && keep=1; done
+  fi
+  if [ "$keep" -eq 1 ]; then FILES+=("$line"); else LEFT+=("$line"); fi
+done
+
+echo "Folder: the current directory. Branch: \`$BRANCH\`. Phase: \`$PHASE\`. Spec: $SPEC."
+[ -n "$ROLE" ] && echo "Role to check: \`$ROLE\` with \`tools/check-scope $ROLE --base $BASE\`."
+STEP=1
+if [ -n "$MERGE" ]; then
+  echo "$STEP. Merge \`$MERGE\`: \`git merge --no-ff $MERGE -m \"$SPEC $PHASE: merge $MERGE\"\`. On conflicts, stop."; STEP=$((STEP+1))
+fi
+if [ "${#FILES[@]}" -gt 0 ]; then
+  echo "$STEP. Commit with **exactly** these changes (output of \`git status --short\` when this brief was built; if you see others, stop):"
+  printf '   - `%s`\n' "${FILES[@]}"
+  if [ "${#LEFT[@]}" -gt 0 ]; then
+    echo "   **Outside the brief** (other sessions share this copy): do **not** touch or include them; \`git add\` only the files above, by name:"
+    printf '   - `%s`\n' "${LEFT[@]}"
+  fi
+  echo "   First line: \`$TITLE\`"
+  for d in "${DETAILS[@]}"; do echo "   - Detail: $d"; done
+  STEP=$((STEP+1))
+else
+  echo "No uncommitted changes: do not commit (only what the other steps ask)."
+fi
+if [ "$PUSH" -eq 1 ]; then echo "$STEP. \`git push -u origin $BRANCH\`."; else echo "$STEP. Do **not** push."; fi

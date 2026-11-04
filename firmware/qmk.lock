@@ -1,0 +1,2 @@
+# QMK commit that tools/build qmk compiles against. Change it to migrate; rebuild and run the tests.
+unset

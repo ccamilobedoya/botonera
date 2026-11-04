@@ -1,0 +1,28 @@
+{
+  "name": "botonera-tools",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Process tooling of the botonera repository (Node 24, TypeScript run directly)",
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "map": "tools/map"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "markdownlint-cli2": "0.20.0",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  },
+  "prettier": {
+    "printWidth": 100
+  }
+}

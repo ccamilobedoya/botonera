@@ -12,3 +12,7 @@ local.env
 id_rsa*
 *.srl
 .checks/bin/
+build/
+.agents/
+.review/
+firmware/keymaps/local/

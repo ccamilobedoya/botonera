@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Builds firmware in pinned Docker containers. Nothing is installed on the host; containers have no USB.
+# Usage: tools/build qmk                 → firmware/ as a QMK userspace against the commit in firmware/qmk.lock
+#        tools/build hid-from-scratch    → experiments/hid-from-scratch with the Pico SDK (plus the autotype build)
+#        tools/build blink               → experiments/blink, the toolchain smoke test
+# Output goes to build/<target>/; caches to ~/.cache/botonera/. Exit 0 built, 1 nothing to build yet, 2 cannot run.
+set -euo pipefail
+TARGET="${1:?target: qmk | hid-from-scratch | blink}"
+ROOT="$(git rev-parse --show-toplevel)"; cd "$ROOT"
+CACHE="${BOTONERA_CACHE:-$HOME/.cache/botonera}"; mkdir -p "$CACHE"
+command -v docker >/dev/null 2>&1 || { echo "build cannot-run: docker not found" >&2; exit 2; }
+UID_GID="$(id -u):$(id -g)"
+
+pico_image() {
+  # Builds the Pico SDK image once per Dockerfile content (tag carries its hash).
+  local hash tag
+  hash="$(sha256sum docker/pico-sdk.Dockerfile | cut -c1-12)"
+  tag="botonera-pico-sdk:$hash"
+  if ! docker image inspect "$tag" >/dev/null 2>&1; then
+    echo "build: building the Pico SDK image ($tag)" >&2
+    docker build -q -t "$tag" -f docker/pico-sdk.Dockerfile docker >/dev/null
+  fi
+  echo "$tag"
+}
+
+pico_build() {
+  # $1 = project folder under experiments/, $2.. = extra cmake -D options
+  local proj="$1"; shift
+  local out="build/$proj"; mkdir -p "$out"
+  local tag; tag="$(pico_image)"
+  docker run --rm --network none --user "$UID_GID" -e HOME=/tmp \
+    -v "$ROOT/experiments/$proj:/src:ro" -v "$ROOT/$out:/out" "$tag" \
+    sh -ec "cmake -S /src -B /tmp/b -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Release $* >/tmp/cmake.log 2>&1 || { cat /tmp/cmake.log; exit 1; }; cmake --build /tmp/b -j\$(nproc) >/tmp/make.log 2>&1 || { tail -50 /tmp/make.log; exit 1; }; cp /tmp/b/*.uf2 /out/"
+}
+
+case "$TARGET" in
+  qmk)
+    DIGEST="$(tr -d '[:space:]' < docker/qmk.digest)"
+    docker run --rm --network none "ghcr.io/qmk/qmk_cli@$DIGEST" qmk --version
+    if [ ! -f firmware/keyboards/botonera/info.json ]; then
+      echo "build: no keyboard yet (see F-002)"; exit 1
+    fi
+    LOCK="$(tr -d '[:space:]' < firmware/qmk.lock)"
+    QMK="$CACHE/qmk"
+    if [ ! -d "$QMK/.git" ]; then
+      echo "build: cloning QMK into $QMK" >&2
+      git clone --quiet https://github.com/qmk/qmk_firmware.git "$QMK"
+    fi
+    git -C "$QMK" fetch --quiet origin "$LOCK" && git -C "$QMK" checkout --quiet "$LOCK"
+    git -C "$QMK" submodule update --init --recursive --quiet
+    mkdir -p build/qmk
+    docker run --rm --network none --user "$UID_GID" -e HOME=/tmp \
+      -v "$QMK:/qmk" -v "$ROOT/firmware:/userspace:ro" -v "$ROOT/build/qmk:/out" -w /qmk "ghcr.io/qmk/qmk_cli@$DIGEST" \
+      sh -ec "qmk config user.overlay_dir=/userspace >/dev/null; qmk compile -kb botonera -km default; cp /qmk/*.uf2 /out/"
+    ;;
+  hid-from-scratch)
+    [ -f experiments/hid-from-scratch/CMakeLists.txt ] || { echo "build: no hid-from-scratch sources yet (see F-001)"; exit 1; }
+    pico_build hid-from-scratch
+    pico_build hid-from-scratch -DAUTO_TYPE=ON
+    ;;
+  blink)
+    pico_build blink
+    ;;
+  *) echo "build cannot-run: unknown target $TARGET" >&2; exit 2 ;;
+esac
+echo "build pass: $TARGET → build/$TARGET/"
+ls -l "build/$TARGET/"

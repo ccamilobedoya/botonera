@@ -22,7 +22,7 @@ allowed_licenses = [
 ]
 spdx_headers = false
 ui_i18n = "no"
-roles = ["implementer", "reviewer"]
+roles = ["programmer", "verifier", "reviewer", "integrator"]
 review_rounds = 2
 briefs_per_agent = 3
 context_kb = 40
@@ -31,8 +31,10 @@ commit_warn_lines = 200
 hooks = "scripts"
 
 [model_by_role]
-implementer = "sonnet"
-reviewer = "sonnet"
+programmer = "sonnet"
+verifier = "sonnet"
+reviewer = "haiku"
+integrator = "haiku"
 
 [bench_tolerance]
 tokens_pct = 20
@@ -52,9 +54,15 @@ session_tokens = 0
 startup_tokens = 0
 
 [budget.role_usd]
-implementer = 5.0
+programmer = 5.0
+verifier = 4.0
 reviewer = 0.6
+integrator = 0.2
 
 [docs_index]
 # A document over this many KB lists its sections in the index.
 section_kb = 8
+
+[waivers]
+# Specs are written in Spanish by decision (ADR-0002): the template has the same sections under Spanish headings.
+N13 = "spec template in Spanish (ADR-0002): Alcance, Criterios de aceptación, Archivos, Estado"

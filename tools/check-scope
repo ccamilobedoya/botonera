@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Wrapper: see tools/lib/check-scope.ts
+exec node "$(git rev-parse --show-toplevel)/tools/lib/check-scope.ts" "$@"

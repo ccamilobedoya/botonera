@@ -1,0 +1,11 @@
+node_modules
+build
+.checks
+.agents
+.review
+docs/MAP.md
+CHANGELOG.md
+.claude/settings.json
+.markdownlint-cli2.jsonc
+.github/
+license-exceptions.toml

@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Wrapper: see tools/lib/map.ts
+exec node "$(git rev-parse --show-toplevel)/tools/lib/map.ts" "$@"
