@@ -1,6 +1,6 @@
 # F-000 · Andamiaje del repositorio
 
-**Estado:** verificada · puerta 1 el 2026-11-04 · CUMPLE en la vuelta 4 · esperando la puerta 2
+**Estado:** **cerrada** · puerta 1 y puerta 2 el 2026-11-04 · `v0.1.0`
 **Quién la hace:** el **arquitecto**, como excepción de arranque (el ciclo necesita que esto exista). Al final la revisa un **verificador nuevo** y se corre la regresión de los agentes.
 **Modelo del programador:** no aplica (arquitecto). Las copias y adaptaciones mecánicas pueden ir a un agente Haiku con encargo completo.
 **Dependencias nuevas permitidas:** `copier` ya instalado con `uv tool` (para `new` de la plantilla); imagen Docker de la CLI de QMK fijada por _digest_; imagen Docker propia para el SDK de la Pico (ensayo F-001), construida desde un `Dockerfile` del repo con versiones fijadas. Nada en el PC de Cris.

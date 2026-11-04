@@ -22,6 +22,8 @@ Carpetas de trabajo (_worktrees_), fuera del repo: `../botonera-wt/F-NNN-{acc,de
 10. **`main` es una copia compartida:** los encargos en `main` van con `tools/integrator-brief --only <ruta>`, y el arquitecto **lee la lista** antes de lanzar al integrador.
 11. **Pruebas sin reintentos que tapen defectos:** si el verificador necesita reintentar algo que la ficha exige a la primera, lo reporta como hallazgo.
 12. **Los contenedores no ven el USB:** compilar sí, grabar no. El pad de pruebas en el servidor se resuelve en F-002.
+13. **Los circuitos se dibujan y revisan con protoboard-iso** (pedido del dueño, 2026-11-04). Si protoboard-iso todavía no puede dibujar lo que una ficha necesita, no se improvisa con otra herramienta: se anota en la ficha y en `docs/pending.md`, y se hace cuando protoboard-iso lo permita.
+14. **Pruebas de aceptación en C sin hardware:** el verificador deja `tests/acceptance/F-NNN/host/build.sh` y lo corre con `tools/build host-tests F-NNN` (gcc del contenedor, sin red); las pruebas con el pad enchufado van en `tests/acceptance/F-NNN/device/` y se saltan con un aviso si no hay aparato.
 
 ## 0 · Ficha
 

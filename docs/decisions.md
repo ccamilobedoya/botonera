@@ -65,3 +65,8 @@ Nothing is built without a spec approved by the owner (ADR-0001). A spec closes 
 
 - **Status:** accepted
 - **Date:** 2026-11-04
+
+## D-012 · Circuit drawings with protoboard-iso (ADR-0010)
+
+- **Status:** accepted
+- **Date:** 2026-11-04
