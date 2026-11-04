@@ -19,7 +19,7 @@ rm -f /tmp/f000-review.out
 
 # CA3
 out=$(tools/build qmk 2>&1); rc=$?
-v=$(printf '%s\n' "$out" | grep -ci 'qmk'); last=$(printf '%s\n' "$out" | tail -n 1)
+v=$(printf '%s\n' "$out" | grep -c 'QMK CLI'); last=$(printf '%s\n' "$out" | tail -n 1)
 ok=1; [ "$rc" = 1 ] && [ "$v" -ge 1 ] && [ "$last" = "build: no keyboard yet (see F-002)" ] && ok=0
 res CA3 $ok "exit $rc; last line '$last'; version-ish lines $v"
 
@@ -55,18 +55,19 @@ res CA7 $ok "programmer-violation exit $p, verifier-violation exit $v (both expe
 
 # CA8
 o=$(tools/publish-spec docs/specs/F-000-andamiaje.md 2>&1); rc=$?
-leak=$(git ls-files | xargs grep -l "127.0.0.1:8087" 2>/dev/null)
+addr="127.0.0.1:80""87"
+leak=$(git ls-files | xargs grep -l "$addr" 2>/dev/null)
 ok=1; case "$o" in *"Updated: F-000"*) [ "$rc" = 0 ] && [ -z "$leak" ] && ok=0 ;; esac
 res CA8 $ok "exit $rc; output '$(printf '%s' "$o" | head -n 1 | cut -c1-60)'; leaks: ${leak:-none}"
 
 # CA9
 printf '%s%s\n' almendr oso >docs/zz-probe.md
 git add docs/zz-probe.md
-o=$(sh scripts/hooks/pre-commit 2>&1); r1=$?
+o=$(scripts/hooks/pre-commit 2>&1); r1=$?
 git restore --staged docs/zz-probe.md
 printf 'clean probe\n' >docs/zz-probe.md
 git add docs/zz-probe.md
-sh scripts/hooks/pre-commit >/dev/null 2>&1; r2=$?
+scripts/hooks/pre-commit >/dev/null 2>&1; r2=$?
 git restore --staged docs/zz-probe.md
 rm -f docs/zz-probe.md
 ok=1; [ "$r1" = 1 ] && [ "$r2" = 0 ] && printf '%s' "$o" | grep -q 'privacy finding' && ok=0
