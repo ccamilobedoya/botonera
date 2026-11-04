@@ -168,7 +168,16 @@ Un repo en la carpeta del repo donde la próxima ficha (F-001) puede lanzarse co
 
 ## Resultado obtenido
 
-Al cerrar.
+Hecho por el arquitecto el 2026-11-04, con el verificador y el integrador como agentes.
+
+- **Repo generado** con `new` de la plantilla (stack `docs`, público, MIT, `en+es`, agentes, CI, `claude_language` en inglés) y adaptado: proceso de Tintero (`docs/process.md`), cuatro agentes en inglés (`programmer`, `verifier`, `reviewer`, `integrator`), herramientas `tools/launch-agent`, `integrator-brief`, `check-scope`, `publish-spec`, `map`, `build` y `acceptance` (Node 24, TypeScript directo, pruebas con Vitest), `docker/` con la CLI de QMK fijada por _digest_ y una imagen propia del SDK de la Pico 2.3.1 con TinyUSB y picotool, ADR-0001 a ADR-0009, reglas S1–S7, plantillas de informes, regresión de agentes y las fichas F-000 y F-001.
+- **Desviaciones de la ficha:** nombres de carpetas y herramientas en inglés (D3): `docs/specs/` en vez de `docs/fichas/`, `docs/adr/`, `docs/templates/`, `docs/reports/`, `docs/process.md`, `docs/security.md`, `docs/lessons.md`, `docs/metrics.md`, `docs/MAP.md`, `docs/local-config.md`; `docs/decisions.md` se mantiene como índice con estado (pieza de la plantilla) y apunta a los ADR; el humo de la cadena del SDK es `experiments/blink/` propio, no el `blink` del SDK (los ejemplos viven en otro repo); exención `N13` en `project.toml` porque la plantilla de ficha está en español; `tools/acceptance F-NNN` como punto de entrada único de las pruebas de aceptación (no estaba en la ficha; salió de la vuelta 2).
+- **Hallazgos de camino:** el SDK de la Pico 2.x baja picotool por red al configurar, así que la imagen lo compila e instala (4 GB); prettier reformatea los JSON de la plantilla (excluidos en `.prettierignore`); markdownlint exige H1 en los agentes y lenguaje en cada cerca; un patrón de permiso `Bash(prefijo:*)` solo coincide con un token completo.
+- **Vueltas de verificación:** 3. Vuelta 1: CA2 (faltaban los binarios de `.checks/bin/` en el _worktree_), CA5 (`tools/map` omitía `docs/reports`) y CA9 (sin permiso para el hook) → corregidos en `9b4b18f`. Vuelta 2: sin evidencia, el patrón de permiso no cubría el `check.sh` → `tools/acceptance` en `8f44a4f`. Vuelta 3: ver el informe en `docs/reports/F-000/`.
+- **Regresión de agentes:** los tres pasos dieron lo esperado (CA1 NO VERIFICABLE con la pregunta del rango; CA2 FALLA con −478; el integrador se detiene ante `extra.txt`).
+- **Licencia (ADR-0003):** los archivos del userspace de QMK van bajo GPL-2.0-or-later con cabecera SPDX (pendiente para F-002); el resto MIT; nota en `LICENSE`.
+- **Fuera del repo, creado por el arquitecto:** `~/.config/botonera/local.env` (URL del ETAPI, archivo del token, nota de fichas) y `private-terms.txt` (lista inicial; el dueño la revisa), ambos 600; `git config --local checks.privateTermsFile`.
+- **Costo de agentes:** verificador USD 0,23 + 0,05 + vuelta 3; regresión USD 0,18; integrador USD 0,01.
 
 ## Resumen para aprobar
 
