@@ -2,7 +2,7 @@
 
 > Aprobado por el dueño el 2026-11-04 (ADR-0007), calcado del de Tintero. Lo ejecuta el **arquitecto** (sesión principal), que **no** hace commits ni push. Hay **dos puertas del dueño**: la ficha y la integración. Los agentes **escriben el firmware**; el dueño graba el `.uf2` y prueba en Windows, iPad y Mac.
 
-Carpetas de trabajo (_worktrees_), fuera del repo: `../botonera-wt/F-NNN-{acc,dev,ver}`. Cada una con `npm ci`.
+Carpetas de trabajo (_worktrees_), fuera del repo: `../botonera-wt/F-NNN-{acc,dev,ver}`. En cada una, antes de lanzar un agente: `scripts/setup && npm ci` (los binarios de `scripts/review` viven en `.checks/bin/`, que no se versiona; lección de F-000).
 
 **Lanzar un agente:** `tools/launch-agent <rol> <modelo> <carpeta> <encargo.md> [tope-usd]` (contexto limpio, tope de gasto, costo y tokens en `.agents/`). Roles: `programmer`, `verifier`, `reviewer`, `integrator`.
 

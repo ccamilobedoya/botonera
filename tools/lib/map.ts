@@ -4,7 +4,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const ROOT = process.cwd();
-const SKIP = new Set(["node_modules", ".git", ".revisar", "coverage", "reports"]);
+const SKIP = new Set(["node_modules", ".git", ".review", ".agents", "build", "coverage"]);
 
 export function describe(readme: string): string {
   const line = readme.split("\n").find((entry) => entry.trim() !== "" && !entry.startsWith("#"));
