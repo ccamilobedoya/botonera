@@ -1,0 +1,68 @@
+#!/bin/sh
+# Aggregated review: runs every review.d/*.sh and prints one line per check.
+#   ✅ passed   ❗ found something   – skipped or could not run
+# Exit 0 when nothing is wrong, 1 when a check found something, 2 when a check could not run.
+
+root=$(git rev-parse --show-toplevel 2>/dev/null) || root=$(cd "$(dirname "$0")/.." && pwd)
+cd "$root" || exit 2
+
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/review.XXXXXX") || exit 2
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+
+passed=0
+found=0
+other=0
+worst=0
+red=""
+
+for script in review.d/*.sh; do
+  [ -f "$script" ] || continue
+  base=${script##*/}
+  name=${base%.sh}
+  name=${name#[0-9][0-9]-}
+  sh "$script" >"$tmp/out" 2>&1
+  rc=$?
+  last=$(tail -n 1 "$tmp/out")
+  skip=$(sed -n 's/^SKIP: //p' "$tmp/out" | head -n 1)
+  case $rc in
+    0)
+      if [ -n "$skip" ]; then
+        echo "– $name: $skip"
+        other=$((other + 1))
+      else
+        line="✅ $name"
+        warns=$(sed -n 's/^WARN: //p' "$tmp/out")
+        if [ -n "$warns" ]; then
+          while IFS= read -r warn; do
+            line="$line ($warn)"
+          done <<WARNS
+$warns
+WARNS
+        fi
+        echo "$line"
+        passed=$((passed + 1))
+      fi
+      ;;
+    1)
+      echo "❗ $name: $last"
+      sed 's/^/    /' "$tmp/out"
+      found=$((found + 1))
+      red="$red $name"
+      [ "$worst" -eq 2 ] || worst=1
+      ;;
+    *)
+      echo "– $name: cannot run: ${last:-no output}"
+      other=$((other + 1))
+      worst=2
+      red="$red $name"
+      ;;
+  esac
+done
+
+echo "review: $passed ✅ · $found ❗ · $other –"
+# Compare this run with the previous ones (B03); it never changes the exit code.
+if [ -f .checks/rounds.py ] && command -v python3 >/dev/null 2>&1; then
+  # shellcheck disable=SC2086
+  CLAUDE_PROJECT_DIR=$root python3 .checks/rounds.py --record $red || true
+fi
+exit "$worst"

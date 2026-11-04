@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+"""Agent bench (manual, it costs tokens): three fixed briefs with `claude -p`, compared with the last run.
+
+  scripts/agent-bench
+
+Runs every scripts/agent-bench.d/*.md through `claude -p --output-format json --agent <role>` (each
+brief names its agent in a frontmatter, `agent: <role>`, one of .claude/agents/), appends one line
+per brief to .checks/state/bench.jsonl and compares with the previous record of the same brief
+within bench_tolerance (project.toml). It is not part of scripts/review.
+Exit 0 within tolerance, 1 findings, 2 could not run.
+"""
+
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+import tomllib
+from pathlib import Path
+
+sys.dont_write_bytecode = True
+
+ROOT = Path(os.path.abspath(__file__)).parent.parent  # not resolve(): it may be a link
+sys.path.insert(0, str(ROOT / ".checks"))
+import report_status  # noqa: E402
+
+DEFAULT_TOKENS_PCT = 20
+DEFAULT_CALLS = 1
+
+
+def tolerance():
+    try:
+        with open(ROOT / "project.toml", "rb") as fh:
+            tol = tomllib.load(fh).get("bench_tolerance") or {}
+    except (OSError, tomllib.TOMLDecodeError):
+        tol = {}
+    return tol.get("tokens_pct", DEFAULT_TOKENS_PCT), tol.get("calls", DEFAULT_CALLS)
+
+
+def last_record(path, brief):
+    found = None
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(rec, dict) and rec.get("brief") == brief:
+                found = rec
+    except OSError:
+        pass
+    return found
+
+
+def read_brief(brief):
+    """(agent, prompt) or (None, why): the frontmatter names the agent the brief runs as."""
+    text = brief.read_text(encoding="utf-8")
+    match = re.match(r"---\n(.*?)\n---\n", text, re.S)
+    head = dict(re.findall(r"(?m)^(\w+):[ \t]*(\S.*)$", match.group(1))) if match else {}
+    agent = head.get("agent", "").strip()
+    if not agent:
+        return None, "no `agent: <role>` in the frontmatter"
+    prompt = text[match.end():]
+    if not (ROOT / ".claude" / "agents" / f"{agent}.md").is_file():
+        return None, f"agent {agent} is not in .claude/agents"
+    return agent, prompt.lstrip("\n")
+
+
+def run_brief(claude, brief):
+    """Returns (record, None) or (None, why it could not run)."""
+    agent, prompt = read_brief(brief)
+    if agent is None:
+        return None, prompt
+    # No session persistence: bench runs must not count as work sessions in the usage log.
+    proc = subprocess.run([claude, "-p", "--output-format", "json", "--agent", agent, "--no-session-persistence"],
+                          input=prompt, capture_output=True, text=True, cwd=ROOT)
+    if proc.returncode != 0:
+        return None, f"claude exited {proc.returncode}"
+    try:
+        doc = json.loads(proc.stdout)
+        usage = doc["usage"]
+        # All input, cache reads included: a warm or a cold cache is the same work for the agent.
+        tokens = sum(usage[k] for k in ("input_tokens", "cache_creation_input_tokens",
+                                        "cache_read_input_tokens", "output_tokens"))
+        report = doc["result"]
+        record = {"date": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "brief": brief.stem, "agent": agent,
+                  "tokens": tokens, "calls": int(doc["num_turns"]), "cost": doc.get("total_cost_usd")}
+    except (ValueError, KeyError, TypeError):
+        return None, "claude printed no usable JSON"
+    code, message = report_status.validate(report if isinstance(report, str) else "")
+    record["status"] = "ok" if code == 0 else ("stopped" if message.startswith("report status") else "none")
+    record["_message"] = message
+    return record, None
+
+
+def main():
+    claude = shutil.which("claude")
+    if not claude:
+        print("agent-bench could not run: claude not found → install Claude Code")
+        return 2
+    briefs = sorted((ROOT / "scripts" / "agent-bench.d").glob("[0-9][0-9]-*.md"))
+    if not briefs:
+        print("agent-bench could not run: no briefs in scripts/agent-bench.d → add them")
+        return 2
+    tokens_pct, calls_tol = tolerance()
+    state = ROOT / ".checks" / "state" / "bench.jsonl"
+    state.parent.mkdir(parents=True, exist_ok=True)
+    findings, failed = [], []
+    for brief in briefs:
+        record, why = run_brief(claude, brief)
+        if record is None:
+            failed.append(f"agent-bench could not run: brief {brief.stem}: {why} → run claude -p by hand to see why")
+            continue
+        message = record.pop("_message")
+        before = last_record(state, brief.stem)
+        with open(state, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(record) + "\n")
+        if record["status"] != "ok":
+            findings.append(f"agent-bench finding: brief {brief.stem}: {message} → the agent must end with a STATUS line")
+        if before:
+            old, new = before.get("tokens"), record["tokens"]
+            if isinstance(old, int) and old > 0 and (new - old) * 100 > old * tokens_pct:
+                findings.append(f"agent-bench finding: brief {brief.stem}: tokens {(new - old) * 100 / old:+.0f}% "
+                                f"(tolerance {tokens_pct}%) → find what made the agent read or say more")
+            if isinstance(before.get("calls"), int) and record["calls"] - before["calls"] > calls_tol:
+                findings.append(f"agent-bench finding: brief {brief.stem}: calls {record['calls'] - before['calls']:+d} "
+                                f"(tolerance {calls_tol}) → find what made the agent take more turns")
+    if failed or findings:
+        print("\n".join(failed + findings))
+    if failed:
+        return 2
+    if findings:
+        return 1
+    print(f"agent-bench: {len(briefs)} briefs within tolerance")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

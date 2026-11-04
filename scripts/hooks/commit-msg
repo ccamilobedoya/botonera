@@ -1,0 +1,12 @@
+#!/bin/sh
+# Commit-msg: privacy scan over the commit message.
+
+root=$(git rev-parse --show-toplevel) || exit 2
+cd "$root" || exit 2
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "commit-msg cannot-run: python3 not found → install Python 3.11+"
+  exit 2
+fi
+
+exec python3 .checks/privacy.py --message-file "$1"

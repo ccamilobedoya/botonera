@@ -1,0 +1,60 @@
+# Project options, read by the project tooling.
+name = "botonera"
+created = "2026-11-04"
+visibility = "public"
+stack = "docs"
+license = "MIT"
+docs_language = "en+es"
+agents = "subagents"
+ci = "github"
+claude_language = "en"
+# Licences accepted for dependencies.
+allowed_licenses = [
+  "MIT",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "Apache-2.0",
+  "ISC",
+  "0BSD",
+  "CC0-1.0",
+  "Unlicense",
+  "BlueOak-1.0.0",
+]
+spdx_headers = false
+ui_i18n = "no"
+roles = ["implementer", "reviewer"]
+review_rounds = 2
+briefs_per_agent = 3
+context_kb = 40
+commits = "per_phase"
+commit_warn_lines = 200
+hooks = "scripts"
+
+[model_by_role]
+implementer = "sonnet"
+reviewer = "sonnet"
+
+[bench_tolerance]
+tokens_pct = 20
+calls = 1
+
+[budget]
+session_warn_pct = 50
+session_limit_pct = 80
+on_limit = "ask"
+max_rounds_without_progress = 2
+adjust = "suggest"
+cache_warn_pct = 80
+cache_min_turns = 10
+# 0 = unknown; set it to estimate the session percentage when the real one is not available.
+session_tokens = 0
+# Tokens of the first call of a session; 0 = only record it. Above it, the Stop hook warns once per session.
+startup_tokens = 0
+
+[budget.role_usd]
+implementer = 5.0
+reviewer = 0.6
+
+[docs_index]
+# A document over this many KB lists its sections in the index.
+section_kb = 8

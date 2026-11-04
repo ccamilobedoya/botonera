@@ -1,0 +1,14 @@
+node_modules/
+coverage/
+.checks/state/
+CLAUDE.local.md
+.claude/settings.local.json
+.env
+.env.*
+!.env.example
+local.env
+*.pem
+*.key
+id_rsa*
+*.srl
+.checks/bin/

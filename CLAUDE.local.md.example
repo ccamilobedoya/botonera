@@ -1,0 +1,27 @@
+# Local context (not versioned)
+
+Copy this file to `CLAUDE.local.md` and fill it in. Git ignores `CLAUDE.local.md`, so it never leaves this machine.
+
+## What goes here
+
+- Local paths: where the repository, tools and data live on this machine.
+- Private pointers: where the notes, tickets or documents that are not part of the repository can be found.
+- Machine notes: installed versions, services that must be running, shell quirks.
+- Personal preferences for how to work with the assistant, such as tone or language of the conversation.
+
+## What does not go here
+
+- Secrets, tokens and passwords. Use environment variables or a secret manager.
+- Anything the project needs to work for other people. That belongs in versioned files such as `CLAUDE.md` or `docs/`.
+
+## Rule for agents
+
+No agent file, brief or versioned document may refer to `CLAUDE.local.md`. Its content is only for the main session on this machine, and what it says must never be copied into anything that is committed.
+
+## Example
+
+```text
+Repository: ~/projects/my-project
+Notes: the project wiki, page "Status"
+Machine: Node 24 via a version manager; run `nvm use` first
+```

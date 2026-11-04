@@ -1,0 +1,42 @@
+#!/bin/sh
+# Pre-commit: never-commit list, privacy scan and gitleaks over the staged changes.
+# Every step runs; exit 2 if any step could not run, else 1 if any found something, else 0.
+
+root=$(git rev-parse --show-toplevel) || exit 2
+cd "$root" || exit 2
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "pre-commit cannot-run: python3 not found → install Python 3.11+"
+  exit 2
+fi
+
+worst=0
+record() {
+  case $1 in
+    0) ;;
+    1) [ "$worst" -eq 2 ] || worst=1 ;;
+    *) worst=2 ;;
+  esac
+}
+
+python3 .checks/never_commit.py --staged
+record $?
+
+python3 .checks/privacy.py --staged
+record $?
+
+gitleaks=.checks/bin/gitleaks
+[ -x "$gitleaks" ] || gitleaks=$(command -v gitleaks 2>/dev/null) || gitleaks=""
+if [ -z "$gitleaks" ]; then
+  echo "gitleaks could not run: run scripts/setup"
+  record 2
+else
+  "$gitleaks" git --pre-commit --staged --redact --no-banner
+  rc=$?
+  case $rc in
+    0 | 1) record "$rc" ;;
+    *) record 2 ;;
+  esac
+fi
+
+exit "$worst"

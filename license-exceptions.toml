@@ -1,0 +1,12 @@
+# Accepted exceptions to the dependency licence check (scripts/review → licenses).
+#
+# A dependency whose licence is not in allowed_licenses (project.toml) fails the review unless it
+# has an exception here. An exception counts only when `reason` and `approved_by` are not empty
+# and `package` and `version` match; otherwise it is ignored and the review says so.
+#
+# [[exception]]
+# package = "example-package"     # name as in package-lock.json, scope included (@scope/name)
+# version = "1.2.3"               # exact version, or "*" for any version
+# license = "GPL-3.0-only"        # licence being accepted, for the record
+# reason = "build-time tool, not shipped"
+# approved_by = "name of the person who approved it"

@@ -1,0 +1,250 @@
+# Cases for the privacy scanner. Each case is one file; `expect` is the rule that must
+# report it, or "clean". The scanner runs them with `--self-test`, and the tests run them
+# as staged files in a throwaway repo. The terms are synthetic.
+#
+# Tokens are written as pieces in [parts] and joined at run time ({NAME} in `content`),
+# so no file holds a string shaped like a real secret.
+
+terms = ["lumbrera", "josé pérez"]
+
+[parts]
+ROOT = ["#", "root/"]
+HOME = ["/ho", "me/"]
+GHP = ["gh", "p_", "Zx9QwErTyUiOpAsDfGhJkLzXcVbNm1234567"]
+GHPAT = ["github", "_pat_", "11ABCDEFG0123456789_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWX"]
+AKIA = ["AK", "IA", "QWERTYUIOPASDFGH"]
+XOXB = ["xo", "xb-", "1234567890-abcdefghijklmn"]
+JWT = ["ey", "JhbGciOiJIUzI1NiJ9", ".", "ey", "JzdWIiOiIxMjM0NTY3ODkwIn0", ".", "c2lnbmF0dXJl"]
+PEM = ["-----BEGIN RSA PRI", "VATE KEY-----\nMIIBOgIBAAJBAKj34GkxFhD90vcNLYLInFEX6Ppy1tPf9Cnzj4p4WGeKLs1Pt8Qu\n-----END RSA PRI", "VATE KEY-----"]
+SKANT = ["sk", "-ant-", "api03-abcdefghijklmnopqrstuvwxyz012345"]
+
+# --- private terms -------------------------------------------------------
+[[case]]
+id = "term-lower-md"
+path = "notes/a.md"
+content = "Notes about lumbrera.\n"
+expect = "term"
+
+[[case]]
+id = "term-upper-md"
+path = "notes/b.md"
+content = "LUMBRERA IN CAPITALS\n"
+expect = "term"
+
+[[case]]
+id = "term-in-code"
+path = "src/c.ts"
+content = "export const label = \"Lumbrera\";\n"
+expect = "term"
+
+[[case]]
+id = "term-in-json"
+path = "data/d.json"
+content = "{\"owner\": \"lumbrera\"}\n"
+expect = "term"
+
+[[case]]
+id = "term-nfc-accents"
+path = "notes/e.md"
+content = "Habló José Pérez.\n"
+expect = "term"
+
+[[case]]
+id = "term-nfd-accents"
+path = "notes/f.md"
+content = "Habló José Pérez.\n"
+expect = "term"
+
+[[case]]
+id = "term-without-accents"
+path = "notes/g.md"
+content = "Hablo jose perez.\n"
+expect = "term"
+
+[[case]]
+id = "term-split-by-markdown-bold"
+path = "notes/h.md"
+content = "The **lum**brera project.\n"
+expect = "term"
+
+[[case]]
+id = "term-split-by-markdown-emphasis"
+path = "notes/i.md"
+content = "The lum*bre*ra project.\n"
+expect = "term"
+
+[[case]]
+id = "term-in-file-name"
+path = "notes/lumbrera-plan.md"
+content = "Nothing private inside.\n"
+expect = "file-name-term"
+
+[[case]]
+id = "accented-file-name-nfd"
+path = "notas-José.md"
+content = "Notas de José Pérez.\n"
+expect = "term"
+
+[[case]]
+id = "term-in-png-metadata"
+path = "img/photo.png"
+content_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAAGXRFWHRDb21tZW50AHBob3RvIG9mIGx1bWJyZXJhlBBSbwAAAAxJREFUeJxjYGBgAAAABAAB9hc4VQAAAABJRU5ErkJggg=="
+expect = "term"
+
+[[case]]
+id = "clean-png"
+path = "img/clean.png"
+content_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNgYGAAAAAEAAH2FzhVAAAAAElFTkSuQmCC"
+expect = "clean"
+
+# --- personal data -------------------------------------------------------
+[[case]]
+id = "note-link"
+path = "docs/j.md"
+content = "See {ROOT}abcdefghijkl for details.\n"
+expect = "note-link"
+
+[[case]]
+id = "bare-12-char-id"
+path = "docs/k.md"
+content = "Build abcdefghijkl finished.\n"
+expect = "clean"
+
+[[case]]
+id = "email"
+path = "docs/l.md"
+content = "Write to ana.perez@correo-privado.co today.\n"
+expect = "email"
+
+[[case]]
+id = "email-obfuscated-brackets"
+path = "docs/m.md"
+content = "Write to ana [at] correo-privado.co today.\n"
+expect = "email"
+
+[[case]]
+id = "email-obfuscated-parens"
+path = "docs/n.md"
+content = "Write to ana(at)correo-privado.co today.\n"
+expect = "email"
+
+[[case]]
+id = "email-example-domain"
+path = "docs/o.md"
+content = "Use user@example.com in the docs.\n"
+expect = "clean"
+
+[[case]]
+id = "package-at-version"
+path = "docs/p.md"
+content = "Install react@18.3.1 first.\n"
+expect = "clean"
+
+[[case]]
+id = "home-path"
+path = "docs/q.md"
+content = "Stored in {HOME}usuario/x for now.\n"
+expect = "home-path"
+
+[[case]]
+id = "home-path-url-encoded"
+path = "docs/r.md"
+content = "Open file:///home%2Fusuario%2Fx in the browser.\n"
+expect = "home-path"
+
+[[case]]
+id = "home-path-windows-tilde"
+path = "docs/s.md"
+content = "Copy it to ~\\proyectos\\x first.\n"
+expect = "home-path"
+
+[[case]]
+id = "home-path-macos"
+path = "docs/t.md"
+content = "Stored in /Users/ana/x for now.\n"
+expect = "home-path"
+
+[[case]]
+id = "private-ip-192"
+path = "conf/u.txt"
+content = "server = 192.168.1.20\n"
+expect = "private-ip"
+
+[[case]]
+id = "private-ip-10"
+path = "conf/v.txt"
+content = "server = 10.0.0.5\n"
+expect = "private-ip"
+
+[[case]]
+id = "public-ip"
+path = "conf/w.txt"
+content = "dns = 8.8.8.8\n"
+expect = "clean"
+
+[[case]]
+id = "tailnet-host"
+path = "conf/x.txt"
+content = "url = https://host.tail1234.ts.net/\n"
+expect = "tailnet"
+
+[[case]]
+id = "phone-number"
+path = "docs/y.md"
+content = "Call +57 300 123 4567.\n"
+expect = "clean"
+
+# --- secrets (second line behind gitleaks) ------------------------------
+[[case]]
+id = "github-classic-token"
+path = "conf/gh.txt"
+content = "token = {GHP}\n"
+expect = "github-token"
+
+[[case]]
+id = "github-fine-grained-token"
+path = "conf/ghpat.txt"
+content = "token = {GHPAT}\n"
+expect = "github-token"
+
+[[case]]
+id = "aws-access-key"
+path = "conf/aws.txt"
+content = "key = {AKIA}\n"
+expect = "aws-key"
+
+[[case]]
+id = "slack-bot-token"
+path = "conf/slack.txt"
+content = "token = {XOXB}\n"
+expect = "slack-token"
+
+[[case]]
+id = "jwt"
+path = "conf/jwt.txt"
+content = "auth = {JWT}\n"
+expect = "jwt"
+
+[[case]]
+id = "private-key-in-markdown"
+path = "docs/key.md"
+content = "Example:\n\n{PEM}\n"
+expect = "private-key"
+
+[[case]]
+id = "anthropic-key"
+path = "conf/llm.txt"
+content = "key = {SKANT}\n"
+expect = "anthropic-key"
+
+[[case]]
+id = "sha256-hex"
+path = "conf/sum.txt"
+content = "sha256 = 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb\n"
+expect = "clean"
+
+[[case]]
+id = "long-base64"
+path = "conf/blob.txt"
+content = "blob = UmVwb3NpdG9yaWVzIGtlZXAgdGhlaXIgaGlzdG9yeSBmb3JldmVyLCBzbyBjaGVjayBiZWZvcmUgY29tbWl0dGluZy4=\n"
+expect = "clean"

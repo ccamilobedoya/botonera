@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+"""Status line (pieces B01/B02): print a short line and keep the last input.
+
+Claude Code only gives the 5-hour limit percentage and the real cost to the
+status line, not to hooks (step 0, CA0b). This saves that input, untouched, in
+.checks/state/statusline.json so the hooks can read it. It never fails: on any
+error it still prints a line.
+"""
+
+import json
+import os
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+
+def short_line(data):
+    parts = []
+    ctx = (data.get("context_window") or {}).get("used_percentage")
+    if ctx is not None:
+        parts.append(f"ctx {ctx:.0f}%")
+    five = ((data.get("rate_limits") or {}).get("five_hour") or {}).get("used_percentage")
+    parts.append(f"5h {five:.0f}%" if five is not None else "5h n/a")
+    cost = (data.get("cost") or {}).get("total_cost_usd")
+    if cost is not None:
+        parts.append(f"${cost:.2f}")
+    model = (data.get("model") or {}).get("display_name")
+    if model:
+        parts.insert(0, model)
+    return " · ".join(parts)
+
+
+def save(data, state_dir):
+    state_dir.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=state_dir, prefix=".statusline-")
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        json.dump({"received_at": time.time(), "input": data}, fh, ensure_ascii=False)
+    os.replace(tmp, state_dir / "statusline.json")
+
+
+def main():
+    try:
+        data = json.load(sys.stdin)
+        project = (data.get("workspace") or {}).get("project_dir") or os.environ.get("CLAUDE_PROJECT_DIR") or "."
+        save(data, Path(project) / ".checks" / "state")
+        print(short_line(data))
+    except Exception as exc:  # noqa: BLE001
+        print(f"statusline: {type(exc).__name__}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

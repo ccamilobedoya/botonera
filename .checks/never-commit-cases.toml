@@ -1,0 +1,54 @@
+# Cases for the never-commit list: file paths that must never be committed, even with
+# `git add -f`. Matching ignores case. `expect` is "finding" or "clean".
+
+[[case]]
+path = "local.env"
+expect = "finding"
+
+[[case]]
+path = "config/local.env"
+expect = "finding"
+
+[[case]]
+path = ".env.production"
+expect = "finding"
+
+[[case]]
+path = ".env.example"
+expect = "clean"
+
+[[case]]
+path = "id_rsa"
+expect = "finding"
+
+[[case]]
+path = "keys/id_ed25519.pub"
+expect = "finding"
+
+[[case]]
+path = "keys/caso.KEY"
+expect = "finding"
+
+[[case]]
+path = "certs/server.pem"
+expect = "finding"
+
+[[case]]
+path = "certs/ca.srl"
+expect = "finding"
+
+[[case]]
+path = "CLAUDE.local.md"
+expect = "finding"
+
+[[case]]
+path = ".claude/settings.local.json"
+expect = "finding"
+
+[[case]]
+path = "docs/env.md"
+expect = "clean"
+
+[[case]]
+path = "src/key.ts"
+expect = "clean"

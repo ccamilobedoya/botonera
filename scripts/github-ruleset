@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# Protects the default branch and turns on secret scanning for this repository.
+# For the repository owner to run, with an authenticated `gh`.
+# By default it only prints what it would do; pass --apply to do it.
+set -euo pipefail
+
+usage() {
+  echo "Usage: scripts/github-ruleset [--apply]"
+  echo "  Without --apply: dry run, nothing is changed."
+  echo "  --apply:         create the branch ruleset and enable secret scanning."
+}
+
+apply=false
+if [ "$#" -gt 1 ]; then
+  usage >&2
+  exit 2
+fi
+case "${1:-}" in
+  "") ;;
+  --apply) apply=true ;;
+  -h | --help)
+    usage
+    exit 0
+    ;;
+  *)
+    echo "Unknown argument: $1" >&2
+    usage >&2
+    exit 2
+    ;;
+esac
+
+repo=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+
+ruleset=$(
+  cat <<'JSON'
+{
+  "name": "Protect default branch",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": ["~DEFAULT_BRANCH"],
+      "exclude": []
+    }
+  },
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" }
+  ]
+}
+JSON
+)
+
+security=$(
+  cat <<'JSON'
+{
+  "security_and_analysis": {
+    "secret_scanning": { "status": "enabled" },
+    "secret_scanning_push_protection": { "status": "enabled" }
+  }
+}
+JSON
+)
+
+if [ "$apply" = false ]; then
+  echo "Dry run for $repo. Nothing is changed; pass --apply to do it."
+  echo
+  echo "Would create this branch ruleset on the default branch:"
+  echo "$ruleset"
+  echo
+  echo "Would enable secret scanning and push protection:"
+  echo "$security"
+  exit 0
+fi
+
+echo "Creating the branch ruleset on $repo"
+printf '%s\n' "$ruleset" | gh api --method POST "repos/$repo/rulesets" --input -
+
+echo "Enabling secret scanning and push protection on $repo"
+printf '%s\n' "$security" | gh api --method PATCH "repos/$repo" --input -
+
+echo "Done."

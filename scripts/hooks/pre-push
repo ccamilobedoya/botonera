@@ -1,0 +1,43 @@
+#!/bin/sh
+# Pre-push: re-check every commit that is about to leave (this also catches --no-verify).
+# Reads `<local ref> <local sha> <remote ref> <remote sha>` lines on stdin.
+# Exit 2 if any step could not run, else 1 if any found something, else 0.
+
+root=$(git rev-parse --show-toplevel) || exit 2
+cd "$root" || exit 2
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "pre-push cannot-run: python3 not found → install Python 3.11+"
+  exit 2
+fi
+
+worst=0
+record() {
+  case $1 in
+    0) ;;
+    1) [ "$worst" -eq 2 ] || worst=1 ;;
+    *) worst=2 ;;
+  esac
+}
+
+is_zero() {
+  case $1 in
+    *[!0]*) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+while read -r _ local_sha _ remote_sha; do
+  is_zero "$local_sha" && continue
+  if is_zero "$remote_sha"; then
+    set -- "$local_sha" --not --remotes
+  else
+    set -- "$remote_sha..$local_sha"
+  fi
+  python3 .checks/privacy.py --commits "$@"
+  record $?
+  python3 .checks/never_commit.py --commits "$@"
+  record $?
+done
+
+exit "$worst"

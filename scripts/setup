@@ -1,0 +1,161 @@
+#!/bin/sh
+# Install the git hooks and the pinned tools (gitleaks, shellcheck, lychee).
+#   scripts/setup             install everything; downloads what is missing
+#   scripts/setup --offline   never download: use .checks/bin or $CHECKS_DOWNLOAD_CACHE only
+# Exit 0 when ready, 2 when something could not be set up.
+
+usage() {
+  echo "usage: scripts/setup [--offline]"
+}
+
+offline=0
+for arg in "$@"; do
+  case $arg in
+    --offline) offline=1 ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+die() {
+  echo "setup cannot-run: $*"
+  exit 2
+}
+
+work=""
+cleanup() {
+  [ -z "$work" ] || rm -rf "$work"
+}
+trap cleanup EXIT HUP INT TERM
+
+# 1. Python 3.11+
+command -v python3 >/dev/null 2>&1 || die "python3 not found → install Python 3.11+"
+python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)' ||
+  die "python3 is older than 3.11 → install Python 3.11+"
+
+# 2. Hooks
+root=$(git rev-parse --show-toplevel 2>/dev/null) || die "not inside a git repository → run git init first"
+cd "$root" || die "cannot enter $root"
+git config core.hooksPath scripts/hooks || die "cannot set core.hooksPath → check the repository config"
+chmod +x scripts/hooks/* 2>/dev/null
+
+# 3. Tools
+platform=$(uname -sm)
+bin=.checks/bin
+mkdir -p "$bin" || die "cannot create $bin"
+work=$(mktemp -d "${TMPDIR:-/tmp}/setup.XXXXXX") || die "cannot create a temporary directory"
+
+sha256_of() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | cut -d ' ' -f 1
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | cut -d ' ' -f 1
+  else
+    python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$1"
+  fi
+}
+
+download() {
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL --retry 2 -o "$2" "$1"
+  else
+    python3 -c 'import sys,urllib.request;open(sys.argv[2],"wb").write(urllib.request.urlopen(sys.argv[1],timeout=60).read())' "$1" "$2"
+  fi
+}
+
+install_tool() {
+  tool=$1
+  url=$2
+  sum=$3
+  archive=${url##*/}
+  stamp=$bin/$tool.sha256
+
+  if [ "$platform" != "Linux x86_64" ]; then
+    command -v "$tool" >/dev/null 2>&1 || die "no pinned build for $platform: install $tool"
+    return 0
+  fi
+  if [ -x "$bin/$tool" ] && [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$sum" ]; then
+    return 0
+  fi
+
+  file=""
+  downloaded=0
+  if [ -n "${CHECKS_DOWNLOAD_CACHE:-}" ] && [ -f "$CHECKS_DOWNLOAD_CACHE/$archive" ]; then
+    file=$CHECKS_DOWNLOAD_CACHE/$archive
+  elif [ "$offline" -eq 1 ]; then
+    die "$tool is not installed and not in the download cache (offline) → run scripts/setup without --offline"
+  else
+    file=$work/$archive
+    echo "setup: downloading $tool"
+    download "$url" "$file" || {
+      rm -f "$file"
+      die "download of $tool failed → check the network and run scripts/setup again"
+    }
+    downloaded=1
+  fi
+
+  if [ "$(sha256_of "$file")" != "$sum" ]; then
+    if [ "$downloaded" -eq 1 ]; then
+      rm -f "$file"
+    else
+      echo "setup: remove the bad cached file $file"
+    fi
+    die "checksum mismatch for $tool"
+  fi
+
+  dest=$work/$tool.dir
+  mkdir -p "$dest" || die "cannot create a temporary directory"
+  tar -xf "$file" -C "$dest" || die "cannot extract the $tool archive → check that tar supports its format"
+  found=$(find "$dest" -type f -name "$tool" | head -n 1)
+  [ -n "$found" ] || die "the $tool archive has no $tool binary"
+  cp "$found" "$bin/$tool" || die "cannot write $bin/$tool"
+  chmod +x "$bin/$tool"
+  printf '%s\n' "$sum" >"$stamp"
+}
+
+install_tool gitleaks \
+  https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz \
+  551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+install_tool shellcheck \
+  https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.xz \
+  8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198
+install_tool lychee \
+  https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-musl.tar.gz \
+  73657a111819a30c47c08352896796f23d64e4eb2b3ed39b6d32149241566fc5
+
+# 4. Node dependencies
+stack=$(python3 -c 'import tomllib;print(tomllib.load(open("project.toml","rb"))["stack"])') ||
+  die "cannot read the stack from project.toml → check project.toml"
+case $stack in
+  node-js | node-ts)
+    command -v node >/dev/null 2>&1 || die "node not found → install Node.js"
+    if [ ! -d node_modules ]; then
+      [ "$offline" -eq 0 ] || die "node_modules missing (run without --offline)"
+      command -v npm >/dev/null 2>&1 || die "npm not found → install Node.js with npm"
+      npm install --no-audit --no-fund || die "npm install failed → fix the error above and run scripts/setup again"
+    fi
+    ;;
+esac
+
+# 5. Private-terms list (outside the repository)
+require=$(git config --bool checks.requirePrivateTerms 2>/dev/null)
+[ "${CHECKS_REQUIRE_PRIVATE_TERMS:-}" = 1 ] && require=true
+terms=${CHECKS_PRIVATE_TERMS_FILE:-$(git config --get checks.privateTermsFile 2>/dev/null)}
+case $terms in
+  \~/*) terms=$HOME/${terms#\~/} ;;
+esac
+if [ "$require" = true ] && { [ -z "$terms" ] || [ ! -r "$terms" ]; }; then
+  die "private-terms list not found (${terms:-not configured}) → create it, one term per line"
+fi
+if [ -z "$terms" ]; then
+  echo "setup: no private-terms list configured → git config --local checks.privateTermsFile <path to a file with one term per line>"
+fi
+
+echo "setup pass: hooks installed, tools ready"
+exit 0

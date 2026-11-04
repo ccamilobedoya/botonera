@@ -1,0 +1,21 @@
+# Files that must never be committed, even with `git add -f`.
+# Subset of gitignore syntax, matched without regard to case:
+#   - `#` starts a comment; `!pattern` is an exception; the last matching line wins.
+#   - A pattern without `/` matches the file name at any depth.
+#   - `**/` matches any directories; `*` matches within one path segment.
+.env
+.env.*
+!.env.example
+local.env
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+id_ecdsa*
+id_dsa*
+*.srl
+CLAUDE.local.md
+.claude/settings.local.json
+credentials.json
